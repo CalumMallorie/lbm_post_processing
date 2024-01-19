@@ -13,6 +13,8 @@ class Trajectory:
         self.filepath = filepath
         self.simulation_metrics = SimulationMetrics(filepath)
 
+        self.junction_only = junction_only
+
         if junction_only:
             self.particle_data = self.filter_by_junction(self.read_particle_datafile(filepath))
         else:
@@ -59,7 +61,7 @@ class Trajectory:
 
         normalised_coordinates_x = (coordinates[:, 0]-centre[0])/(0.5*outlet_width)
         normalised_coordinates_y = (coordinates[:, 1]-centre[1])/(0.5*inlet_width)
-        normalised_coordinates_z = (coordinates[:, 2]-centre[2])/(height)
+        normalised_coordinates_z = (coordinates[:, 2]-centre[2])/(0.5*height)
         return np.array([normalised_coordinates_x, normalised_coordinates_y, normalised_coordinates_z]).T
     
 

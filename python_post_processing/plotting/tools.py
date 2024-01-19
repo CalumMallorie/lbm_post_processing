@@ -2,6 +2,9 @@ from ..data_classes.simulation_metrics import SimulationMetrics
 from ..data_classes.simulation_crash_check import simulation_crash_check
 import os
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.collections import LineCollection
+
 
 def expand_parameters(parameters):
     """
@@ -55,5 +58,5 @@ def search_sim_directory(simulations_location: str, parameters: dict):
     return matching_dirs
 
 def setup_plot():
-    fig, ax = plt.subplots(figsize=(4,4))
+    fig, ax = plt.subplots(figsize=(4,3))
     return fig, ax

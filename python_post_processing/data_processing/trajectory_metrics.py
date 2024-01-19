@@ -1,8 +1,10 @@
 from ..data_classes.trajectory import Trajectory
 from ..data_classes.sim_input import CrossSlot
 from ..data_classes.simulation_crash_check import simulation_crash_check
-import inspect
 import numpy as np
+import pyvista as pv
+import os 
+import pandas as pd
 
 class TrajectoryGlobalMetrics:
     def __init__(self, trajectory: Trajectory):
@@ -28,6 +30,12 @@ class TrajectoryGlobalMetrics:
         y_turn = coordinates[turning_points+1, 1]
         z_turn = coordinates[turning_points+1, 2]
         return np.array([x_turn, y_turn, z_turn]).T
+    
+    def peak_times(self):
+        coordinates = self.trajectory.normalised_coordinates
+        x_diffs = np.diff(coordinates[:, 0])
+        turning_points = np.where(x_diffs[:-1] * x_diffs[1:] < 0)[0]
+        return self.trajectory.times[turning_points+1]
 
     def num_peaks_xy(self):
         peaks = self.peak_positions()
@@ -86,7 +94,7 @@ class TrajectoryGlobalMetrics:
         angular_velocity = TrajectoryLocalMetrics(self.trajectory).angular_velocity(reference_point=centre)
 
         # get the average angular velocity
-        average_angular_velocity = np.mean(angular_velocity) * 180 / np.pi
+        average_angular_velocity = np.mean(angular_velocity)
 
         return average_angular_velocity
     
@@ -105,6 +113,21 @@ class TrajectoryGlobalMetrics:
 class TrajectoryLocalMetrics:
     def __init__(self, trajectory: Trajectory):
         self.trajectory = trajectory
+        self.coordinates = trajectory.coordinates
+        self.velocity = trajectory.velocity
+        self.times = trajectory.times
+        self.cross_slot = trajectory.simulation_metrics.cross_slot_data
+
+    def read_fluid_vtk(self, filepath: str) -> pv.PolyData:
+        """
+        reads the fluid vtk file and returns the fluid data as a
+        pyvista object
+        """
+        
+        # read the fluid velocity from the fluid vtk file:
+        fluid_data = pv.read(filepath)
+
+        return fluid_data
 
     def angular_velocity(self, reference_point):
         # normal vector
@@ -190,8 +213,196 @@ class TrajectoryLocalMetrics:
 
         return fit
         
+    def unpeterbed_fluid_velocity_over_trajectory(self):
+        """
+        calculates the difference between the fluid velocity and the 
+        particle velocity at each point on the trajectory. 
+        """
+
+        # get the fluid data
+        fluid_location = "/home/calum/biofm_projects/PAPERS/ViscoelasticParticle/fluidVTK/junction.vtk"
+
+        # If the velocity has been calculated already, use that.
+        if self.trajectory.junction_only:
+            interpolated_velocity_filepath = os.path.join(
+                self.trajectory.filepath, 'unpeterbed_interpolated_velocity_junction.npy'
+            )
+        else:
+            interpolated_velocity_filepath = os.path.join(
+                self.trajectory.filepath, 'unpeterbed_interpolated_velocity_all.npy'
+            )
+
+        if os.path.exists(interpolated_velocity_filepath):
+            velocity = np.load(interpolated_velocity_filepath)
+            return velocity
         
+        # If the velocity has not been calculated, calculate it now.
+
+        # start with the particle trajectory:
+        trajectory = self.trajectory.coordinates
+        times = self.trajectory.times
+
+        # load the fluid data
+        fluid_data = self.read_fluid_vtk(fluid_location)
+
+        # Loop over the trajectory timesteps. For each timestep, load
+        # the fluid data and interpolate the fluid velocity at the
+        # particle position. Then calculate the difference between the
+        # fluid velocity and the particle velocity.
+        results = np.array([])
+        for i, time in enumerate(times):
+            
+            print('processing timestep', time, 'of', times[-1])
+
+            # get the particle position and convert to pv datatype
+            particle_position = trajectory[i,:]
+            particle_position = pv.PolyData(particle_position)
+            fluid_velocity = particle_position.interpolate(fluid_data)
+            fluid_velocity_array = np.array(fluid_velocity.point_data['velocityVector'])
+            results = np.append(results,fluid_velocity_array)
+        
+        results = np.reshape(results, (len(times),3))
+        # Save the numpy array
+        np.save(interpolated_velocity_filepath, results)
+
+        return results
+    
+    def local_fluid_velocity_over_trajectory(self):
+        """
+        calculates the difference between the fluid velocity and the 
+        particle velocity at each point on the trajectory. 
+        """
+
+        # get the fluid data
+        fluid_folder = os.path.join(
+            self.trajectory.filepath, 'VTKLocalFluid'
+        )
+
+        # If the velocity has been calculated already, use that.
+        if self.trajectory.junction_only:
+            interpolated_velocity_filepath = os.path.join(
+                fluid_folder, 'interpolated_velocity_junction.npy'
+            )
+        else:
+            interpolated_velocity_filepath = os.path.join(
+                fluid_folder, 'interpolated_velocity_all.npy'
+            )
+
+        if os.path.exists(interpolated_velocity_filepath):
+            velocity = np.load(interpolated_velocity_filepath)
+            return velocity
+        
+        # If the velocity has not been calculated, calculate it now.
+
+        # start with the particle trajectory:
+        trajectory = self.trajectory.coordinates
+        times = self.trajectory.times
+
+        # Loop over the trajectory timesteps. For each timestep, load
+        # the fluid data and interpolate the fluid velocity at the
+        # particle position. Then calculate the difference between the
+        # fluid velocity and the particle velocity.
+        results = np.array([])
+        for i, time in enumerate(times):
+            
+            print('processing timestep', time, 'of', times[-1])
+            fluid_vtk_path = os.path.join(
+                fluid_folder, f"localFluid_t{time}.vtr")
+            fluid_data = self.read_fluid_vtk(fluid_vtk_path)
+
+            # get the particle position and convert to pv datatype
+            particle_position = trajectory[i,:]
+            particle_position = pv.PolyData(particle_position)
+            fluid_velocity = particle_position.interpolate(fluid_data)
+            fluid_velocity_array = np.array(fluid_velocity.point_data['velocityVector'])
+            results = np.append(results,fluid_velocity_array)
+        
+        results = np.reshape(results, (len(times),3))
+        # Save the numpy array
+        np.save(interpolated_velocity_filepath, results)
+
+        return results
+
+    
+    def vector_radial_coordinates(self, cartesian_vector):
+        """
+        converts a vector at each point on the trajectory to 
+        radial, tangential and axial coordinates
+        """
+        # get the particle position
+        particle_position = self.trajectory.coordinates
+
+        # define the particle displacement vector from cross slot centre
+        centre = self.cross_slot.centre
+        centre_displacement = centre - particle_position
+
+        # define the radial unit vector
+        radial_displacement = np.array([
+            centre_displacement[:, 0],
+            np.zeros_like(particle_position[:, 1]), # y component = zero
+            centre_displacement[:, 2]]
+        ).T
+        radial_unit_vector = radial_displacement / np.linalg.norm(
+            radial_displacement, axis=1
+            )[:, np.newaxis]
+
+        # define the tangential unit vector
+        y_axis_unit_vector = np.array([0, 1, 0])
+        tangential_unit_vector = np.cross(
+            radial_unit_vector, y_axis_unit_vector
+        )
+        tangential_unit_vector /= np.linalg.norm(
+            tangential_unit_vector, axis=1
+            )[:, np.newaxis] # normalize the tangential unit vector
+
+        # make a 2d vector of the y_axis_unit_vector
+        y_axis_unit_vector_2d = np.tile(
+            y_axis_unit_vector, (len(particle_position), 1)
+        )
+
+        # Project the total velocity forces onto the new basis vectors
+        radial_velocity = np.einsum(
+            'ij,ij->i', cartesian_vector, radial_unit_vector
+        )
+        tangential_velocity = np.einsum(
+            'ij,ij->i', cartesian_vector, tangential_unit_vector
+        )
+        axial_velocity = np.einsum(
+            'ij,ij->i', cartesian_vector, y_axis_unit_vector_2d
+        )
+
+        radial_vector = np.array([
+            radial_velocity, tangential_velocity, axial_velocity
+        ]).T
+
+        return radial_vector
+    
+    def particle_radial_velocity(self):
+        """
+        calculates the particle velocity in radial coordinates
+        """
+        velocity = self.trajectory.velocity
+
+        return self.vector_radial_coordinates(velocity)
+
+        
+    
+    def fluid_radial_velocity(self):
+        """
+        calculates the fluid velocity in radial coordinates
+        """
+        fluid_velocity = self.unpeterbed_fluid_velocity_over_trajectory()
+
+        return self.vector_radial_coordinates(fluid_velocity)    
 
 
-        
+
+
+
+
+
+
+
+
+
 

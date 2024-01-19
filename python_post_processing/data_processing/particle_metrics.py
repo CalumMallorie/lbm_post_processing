@@ -309,4 +309,4 @@ class ParticleGlobalMetrics:
         return projected_areas_df
             
 
-
+            
