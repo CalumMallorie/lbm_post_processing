@@ -64,6 +64,18 @@ class CrossSlotParameters:
         return True
     
     # The following methods are used to calculate the derived parameters:
+    def lattice_centre(self):
+        return self.xml_data.centre
+    
+    def channel_height(self):
+        return self.xml_data.channel_height
+    
+    def inlet_width(self):
+        return self.xml_data.inlet_width
+    
+    def outlet_width(self):
+        return self.xml_data.outlet_width
+
     def lbm_viscosity(self):
         return (1/3)*(self.xml_data.tau - 0.5)
     
@@ -108,7 +120,7 @@ class CrossSlotXML:
 
         # If a file path is provided, populate properties from XML
         if filepath:
-            self.populate_from_xml(filepath)
+            self.populate_from_xml()
 
     def populate_from_xml(self):
         # lattice and geometry properties
