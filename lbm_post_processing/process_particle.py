@@ -878,7 +878,8 @@ class ProcessParticle:
         return distances
     
     def compute_centrifugal_force(self) -> np.array:
-        """Computes the centrifugal force on the particle.
+        """Computes the centrifugal force on the particle, assuming that the
+        particle is in a circular orbit around the outlet centreline.
         
         Returns
         -------
