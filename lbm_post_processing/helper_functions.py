@@ -34,7 +34,6 @@ Trajectory
 import os
 from .read_input_parameters import CrossSlotParameters
 import numpy as np
-from .process_trajectory import Trajectory
 import pandas as pd
 
 def expand_parameters(parameters: dict):
@@ -130,7 +129,7 @@ def simulation_crash_check(filepath: str):
                 return True
     return False
 
-def vector_radial_coordinates(cartesian_vector: np.ndarray, trajectory: Trajectory):
+def vector_radial_coordinates(cartesian_vector: np.ndarray, trajectory):
     """
     Converts a vector at each point on a trajectory to radial, tangential,
     and axial coordinates.
