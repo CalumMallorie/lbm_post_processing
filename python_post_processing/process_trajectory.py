@@ -397,8 +397,8 @@ class ProcessTrajectory:
             res_time = junction_times[-1] - junction_times[0]
             return res_time
         
-    def PQ345(self, normalise=True) -> float:
-        """Calculates the PQ345 parameter.
+    def diff345(self, normalise=True) -> float:
+        """Calculates the diff345 parameter.
         
         Args
         ----
@@ -421,9 +421,9 @@ class ProcessTrajectory:
             d34 = abs(P3-P4)
             d45 = abs(P4-P5)
 
-            PQ345 = d34 + d45
+            diff345 = d34 + d45
 
-            return PQ345
+            return diff345
     
     def cumulative_angular_displacement(self) -> np.ndarray:
         """Calculates the cumulative angular displacement.
