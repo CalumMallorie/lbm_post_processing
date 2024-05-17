@@ -408,7 +408,7 @@ class ProcessTrajectory:
         Returns
         -------
         float
-            The PQ345 parameter.
+            The diff345 parameter.
         """
         peaks = self.peak_positions(normalise=normalise)
         if np.shape(peaks)[0]<5:
