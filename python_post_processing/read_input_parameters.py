@@ -22,58 +22,6 @@ Dependencies
 - numpy
 - my_xml_tools.ReadSimXML
 
-Functions and Methods
----------------------
-CrossSlotParameters
-    __init__(self, filepath)
-        Initializes the class with the path to an XML file.
-    dump(self)
-        Returns a dictionary of method outputs.
-    matches_parameters(self, parameters)
-        Checks if the calculated parameters match the given parameters.
-    lattice_centre(self)
-        Returns the lattice centre coordinates.
-    channel_height(self)
-        Returns the channel height.
-    inlet_width(self)
-        Returns the inlet width.
-    outlet_width(self)
-        Returns the outlet width.
-    stenosis_width(self)
-        Returns the stenosis width.
-    stenosis_length(self)
-        Returns the stenosis length.
-    inlet_velocity(self)
-        Returns the inlet velocity.
-    lbm_viscosity(self)
-        Returns the LBM viscosity.
-    shear_rate(self)
-        Returns the shear rate.
-    advection_time(self)
-        Returns the advection time.
-    hydraulic_diameter(self)
-        Returns the hydraulic diameter.
-    capillary_number(self)
-        Returns the capillary number.
-    reynolds_number_hydraulic_diameter(self)
-        Returns the Reynolds number based on hydraulic diameter.
-    reynolds_number_width(self)
-        Returns the Reynolds number based on width.
-    normalised_initial_position(self)
-        Returns the normalized initial position.
-    boussinesq_shear(self)
-        Returns the Boussinesq shear.
-    boussinesq_dilational(self)
-        Returns the Boussinesq dilational.
-    viscosity_ratio(self)
-        Returns the viscosity ratio.
-
-CrossSlotXML
-    __init__(self, filepath)
-        Initializes the XML reader and populates properties from the XML.
-    populate_from_xml(self)
-        Populates class attributes from the XML file.
-
 Example Usage
 -------------
     from read_input_parameters import CrossSlotParameters
@@ -98,7 +46,7 @@ class CrossSlotParameters:
         xml_data (CrossSlotXML): Instance of CrossSlotXML for data extraction.
     """
     def __init__(self, filepath):
-        """Initialize the class with the path to an XML file.
+        """Initialize the class with the path to the simulation directory.
 
         Args:
             filepath (str): The path to the simulation directory.

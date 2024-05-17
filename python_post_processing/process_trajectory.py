@@ -1,12 +1,94 @@
-from .read_input_parameters import CrossSlotParameters
+"""
+process_trajectory.py
+======================
+
+This module provides classes for processing particle trajectory data from
+simulations. It includes functionality for reading trajectory data,
+filtering it by junction, and calculating various metrics related to the
+trajectory.
+
+Classes
+-------
+Trajectory
+    Class for handling and analyzing particle trajectory data.
+
+ProcessTrajectory
+    Class for processing and analyzing specific metrics of particle 
+    trajectory data.
+
+Dependencies
+------------
+- numpy
+- pandas
+- os
+- pyvista
+- scipy.optimize.curve_fit
+
+Example Usage
+-------------
+    from process_trajectory import Trajectory, ProcessTrajectory
+    
+    # Initialize a Trajectory object with the path to the simulation directory
+    traj = Trajectory('path/to/simulation')
+    
+    # Initialize a ProcessTrajectory object
+    proc_traj = ProcessTrajectory('path/to/simulation')
+    
+    # Get peak positions
+    peaks = proc_traj.peak_positions()
+"""
+
 import numpy as np
 import pandas as pd
 import os
 import pyvista as pv
 from scipy.optimize import curve_fit
 
+from .read_input_parameters import CrossSlotParameters
+from .helper_functions import vector_radial_coordinates
+
 class Trajectory:
+    """
+    Class for handling and analyzing particle trajectory data.
+
+    Attributes
+    ----------
+    filepath : str
+        Path to the simulation directory.
+    input_parameters : CrossSlotParameters
+        Instance of CrossSlotParameters for extracting simulation parameters.
+    datafile : pd.DataFrame
+        DataFrame containing the trajectory data.
+    
+    Methods
+    -------
+    __init__(self, filepath: str, junction_only: bool = True)
+        Initializes the Trajectory class with the path to the simulation directory.
+    read_particle_datafile(self, filepath: str) -> pd.DataFrame
+        Reads the particle data file and returns it as a pandas DataFrame.
+    return_datafile(self) -> pd.DataFrame
+        Returns the trajectory data as a pandas DataFrame.
+    filter_by_junction(self, df: pd.DataFrame) -> pd.DataFrame
+        Filters the trajectory data by junction.
+    return_coordinates(self, normalise: bool = False) -> np.ndarray
+        Returns the particle coordinates.
+    return_velocity(self) -> np.ndarray
+        Returns the particle velocities.
+    return_times(self, normalise: bool = False) -> np.ndarray
+        Returns the times from the trajectory data.
+    export_csv(self, save_path: str, normalise: bool = False)
+        Exports the trajectory data to a CSV file.
+    """
     def __init__(self, filepath: str, junction_only: bool = True):
+        """Initialize the Trajectory class with the path to the simulation directory.
+        
+        Args
+        ----
+        filepath : str
+            The path to the simulation directory.
+        junction_only : bool, optional
+            Whether to process only junction data (default is True).
+        """
         self.filepath = filepath
         self.input_parameters = CrossSlotParameters(filepath)
         if junction_only:
@@ -20,6 +102,18 @@ class Trajectory:
             raise ValueError(f"Time entries in datafile {filepath} are not monotonic.")
     
     def read_particle_datafile(self, filepath: str):
+        """Reads the particle data file and returns it as a pandas DataFrame.
+        
+        Args
+        ----
+        filepath : str
+            The path to the directory containing the 'Particles' folder.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the particle data.
+        """
         df = []
         try:
             path = os.path.join(filepath, 'Particles', 'Particle_0.dat')
@@ -33,9 +127,28 @@ class Trajectory:
         return df
     
     def return_datafile(self):
+        """Returns the trajectory data as a pandas DataFrame.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the trajectory data.
+        """
         return self.datafile
     
     def filter_by_junction(self, df: pd.DataFrame):
+        """Filters the trajectory data by junction.
+        
+        Args
+        ----
+        df : pd.DataFrame
+            DataFrame containing the trajectory data.
+        
+        Returns
+        -------
+        pd.DataFrame
+            Filtered DataFrame.
+        """
         centre = self.input_parameters.lattice_centre()
         height = self.input_parameters.channel_height()
         inlet_width = self.input_parameters.inlet_width()
@@ -53,6 +166,18 @@ class Trajectory:
         return filtered_df
     
     def return_coordinates(self, normalise: bool = False):
+        """Returns the particle coordinates.
+        
+        Args
+        ----
+        normalise : bool, optional
+            Whether to normalise the coordinates (default is False).
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the particle coordinates.
+        """
         coordinates = np.array(self.datafile.loc[:, ['x', 'y', 'z']])
         if normalise:
             centre = self.input_parameters.lattice_centre()
@@ -68,9 +193,28 @@ class Trajectory:
             return coordinates
         
     def return_velocity(self):
+        """Returns the particle velocities.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the particle velocities.
+        """
         return np.array(self.datafile.loc[:, ['v_x', 'v_y', 'v_z']])
     
     def return_times(self, normalise: bool = False):
+        """Returns the times from the trajectory data.
+        
+        Args
+        ----
+        normalise : bool, optional
+            Whether to normalise the times (default is False).
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the times.
+        """
         if normalise:
             try:
                 times = np.array(self.datafile['time']) 
@@ -83,8 +227,14 @@ class Trajectory:
             return np.array(self.datafile['time'])
         
     def export_csv(self, save_path: str, normalise: bool = False):
-        """
-        Exports the trajectory to a CSV file.
+        """Exports the trajectory data to a CSV file.
+        
+        Args
+        ----
+        save_path : str
+            The path where the CSV file will be saved.
+        normalise : bool, optional
+            Whether to normalise the data before exporting (default is False).
         """
         save_dir = os.path.dirname(save_path)
         # Create the save directory if it doesn't exist
@@ -101,13 +251,85 @@ class Trajectory:
                 f.write(f"{row[0]},{row[1]},{row[2]},{row[3]}\n")
 
 class ProcessTrajectory:
+    """
+    Class for processing and analyzing specific metrics of particle trajectory data.
+
+    Attributes
+    ----------
+    filepath : str
+        Path to the simulation directory.
+    junction_only : bool
+        Whether to process only junction data.
+    trajectory : Trajectory
+        Instance of the Trajectory class for handling trajectory data.
+    input_parameters : CrossSlotParameters
+        Instance of CrossSlotParameters for extracting simulation parameters.
+    
+    Methods
+    -------
+    __init__(self, filepath: str, junction_only: bool = True)
+        Initializes the ProcessTrajectory class with the path to the simulation directory.
+    peak_positions(self, normalise: bool = True) -> np.ndarray
+        Returns the positions of the peaks in the trajectory.
+    peak_times(self, normalise: bool = False) -> np.ndarray
+        Returns the times at which the peaks occur.
+    num_peaks_xy(self) -> int
+        Returns the number of peaks in the xy-plane.
+    peak_amplitudes_xy(self) -> np.ndarray
+        Returns the amplitudes of the peaks in the xy-plane.
+    residence_time(self) -> float
+        Returns the residence time of the particle in the junction.
+    PQ345(self, normalise: bool = True) -> float
+        Calculates the PQ345 parameter.
+    cumulative_angular_displacement(self) -> np.ndarray
+        Calculates the cumulative angular displacement.
+    total_revolutions(self) -> float
+        Calculates the total number of revolutions.
+    angular_velocity(self) -> np.ndarray
+        Calculates the angular velocity.
+    orbital_radius(self) -> np.ndarray
+        Calculates the orbital radius.
+    orbital_radius_gradient(self) -> np.ndarray
+        Calculates the gradient of the orbital radius.
+    vector_radial_coordinates(self, cartesian_vector: np.ndarray) -> np.ndarray
+        Converts a vector at each point on the trajectory to radial, tangential, and axial coordinates.
+    particle_radial_velocity(self) -> np.ndarray
+        Calculates the particle velocity in radial coordinates.
+    unpeterbed_fluid_radial_velocity(self, fluid_location: str) -> np.ndarray
+        Calculates the fluid velocity in radial coordinates.
+    unpeterbed_fluid_velocity_over_trajectory(self, fluid_data: pv.PolyData) -> np.ndarray
+        Calculates the difference between the fluid velocity and the particle velocity at each point on the trajectory.
+    fit_damped_sine(self) -> np.ndarray
+        Returns the parameters of a damped sine wave fit to the trajectory.
+    """
     def __init__(self, filepath, junction_only: bool = True):
+        """Initialize the ProcessTrajectory class with the path to the simulation directory.
+        
+        Args
+        ----
+        filepath : str
+            The path to the simulation directory.
+        junction_only : bool, optional
+            Whether to process only junction data (default is True).
+        """
         self.filepath = filepath
         self.junction_only = junction_only
         self.trajectory = Trajectory(filepath, junction_only=junction_only)
         self.input_parameters = CrossSlotParameters(filepath)
 
-    def peak_positions(self, normalise: bool = True):
+    def peak_positions(self, normalise: bool = True) -> np.ndarray:
+        """Returns the positions of the peaks in the trajectory.
+        
+        Args
+        ----
+        normalise : bool, optional
+            Whether to normalise the coordinates (default is True).
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the positions of the peaks.
+        """
         coordinates = self.trajectory.return_coordinates(normalise=normalise)
         x_diffs = np.diff(coordinates[:, 0])
         turning_points = np.where(x_diffs[:-1] * x_diffs[1:] < 0)[0]
@@ -116,25 +338,58 @@ class ProcessTrajectory:
         z_turn = coordinates[turning_points+1, 2]
         return np.array([x_turn, y_turn, z_turn]).T
     
-    def peak_times(self, normalise: bool = False):
+    def peak_times(self, normalise: bool = False) -> np.ndarray:
+        """Returns the times at which the peaks occur.
+        
+        Args
+        ----
+        normalise : bool, optional
+            Whether to normalise the times (default is False).
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the times of the peaks.
+        """
         coordinates = self.trajectory.return_coordinates(normalise=True)
         x_diffs = np.diff(coordinates[:, 0])
         turning_points = np.where(x_diffs[:-1] * x_diffs[1:] < 0)[0]
         times = self.trajectory.return_times(normalise=normalise)
         return times[turning_points+1]
 
-    def num_peaks_xy(self):
+    def num_peaks_xy(self) -> int:
+        """Returns the number of peaks in the xy-plane.
+        
+        Returns
+        -------
+        int
+            Number of peaks in the xy-plane.
+        """
         peaks = self.peak_positions()
         num_peaks = peaks.shape[0]
         return num_peaks
     
-    def peak_amplitudes_xy(self):
+    def peak_amplitudes_xy(self) -> np.ndarray:
+        """Returns the amplitudes of the peaks in the xy-plane.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the amplitudes of the peaks.
+        """
         peaks = self.peak_positions()
         x_deviations = np.abs(peaks[:,0])  # Compute the absolute values of the x deviations using NumPy
         amp_peaks = x_deviations
         return amp_peaks
     
-    def residence_time(self):
+    def residence_time(self) -> float:
+        """Returns the residence time of the particle in the junction.
+        
+        Returns
+        -------
+        float
+            Residence time of the particle.
+        """
         junction_times = self.trajectory.return_times(normalise=True)
         if len(junction_times) < 2:
             return None
@@ -142,8 +397,19 @@ class ProcessTrajectory:
             res_time = junction_times[-1] - junction_times[0]
             return res_time
         
-    def PQ345(self, normalise=True):
-        "function to calculate the PQ_345 parameter"
+    def PQ345(self, normalise=True) -> float:
+        """Calculates the PQ345 parameter.
+        
+        Args
+        ----
+        normalise : bool, optional
+            Whether to normalise the coordinates (default is True).
+        
+        Returns
+        -------
+        float
+            The PQ345 parameter.
+        """
         peaks = self.peak_positions(normalise=normalise)
         if np.shape(peaks)[0]<5:
             return None
@@ -159,8 +425,14 @@ class ProcessTrajectory:
 
             return PQ345
     
-    def cumulative_angular_displacement(self):
-        "calculates the angular "
+    def cumulative_angular_displacement(self) -> np.ndarray:
+        """Calculates the cumulative angular displacement.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the cumulative angular displacement.
+        """
         coordiantes = self.trajectory.return_coordinates(normalise=True)
 
         # we only care about the angular displacement around the y axis:
@@ -183,9 +455,14 @@ class ProcessTrajectory:
         return cumulative_theta
     
     # The following methods all rely on the TrajectoryLocalMetrics class
-    def total_revolutions(self):
-        "calculates the total number of revolutions in terms of degrees, allowing for incomplete revolutions."
-
+    def total_revolutions(self) -> float:
+        """Calculates the total number of revolutions.
+        
+        Returns
+        -------
+        float
+            Total number of revolutions.
+        """
         # get the cumulative angular displacement
         cumulative_angular_displacement = self.cumulative_angular_displacement()
 
@@ -194,7 +471,14 @@ class ProcessTrajectory:
 
         return total_revolutions
     
-    def angular_velocity(self):
+    def angular_velocity(self) -> np.ndarray:
+        """Calculates the angular velocity.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the angular velocity.
+        """
         # normal vector is along the y axis (outlet centreline)
         n_hat = np.array([0.0, 1.0, 0.0])
 
@@ -220,7 +504,14 @@ class ProcessTrajectory:
 
         return angular_velocity
     
-    def orbital_radius(self):
+    def orbital_radius(self) -> np.ndarray:
+        """Calculates the orbital radius.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the orbital radius.
+        """
         trajectory = self.trajectory.return_coordinates(normalise=False)
         x = trajectory[:,0]
         z = trajectory[:,2]
@@ -232,7 +523,14 @@ class ProcessTrajectory:
         r = np.sqrt(x**2 + z**2)
         return r
     
-    def orbital_radius_gradient(self):
+    def orbital_radius_gradient(self) -> np.ndarray:
+        """Calculates the gradient of the orbital radius.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the gradient of the orbital radius.
+        """
         scaled_time = self.trajectory.return_times(normalise=True)
 
         normalised_coordinates = self.trajectory.return_coordinates(normalise=True)
@@ -256,134 +554,49 @@ class ProcessTrajectory:
 
         return fit
     
-    def vector_radial_coordinates(self, cartesian_vector):
-        """
-        converts a vector at each point on the trajectory to 
-        radial, tangential and axial coordinates
-        """
-        # get the particle position
-        particle_position = self.trajectory.return_coordinates(normalise=False)
-
-        # define the particle displacement vector from cross slot centre
-        centre = self.input_parameters.lattice_centre()
-        centre_displacement = centre - particle_position
-
-        # define the radial unit vector
-        radial_displacement = np.array([
-            centre_displacement[:, 0],
-            np.zeros_like(particle_position[:, 1]), # y component = zero
-            centre_displacement[:, 2]]
-        ).T
-        radial_unit_vector = radial_displacement / np.linalg.norm(
-            radial_displacement, axis=1
-            )[:, np.newaxis]
-
-        # define the tangential unit vector
-        y_axis_unit_vector = np.array([0, 1, 0])
-        tangential_unit_vector = np.cross(
-            radial_unit_vector, y_axis_unit_vector
-        )
-        tangential_unit_vector /= np.linalg.norm(
-            tangential_unit_vector, axis=1
-            )[:, np.newaxis] # normalize the tangential unit vector
-
-        # make a 2d vector of the y_axis_unit_vector
-        y_axis_unit_vector_2d = np.tile(
-            y_axis_unit_vector, (len(particle_position), 1)
-        )
-
-        # Project the total velocity forces onto the new basis vectors
-        radial_velocity = np.einsum(
-            'ij,ij->i', cartesian_vector, radial_unit_vector
-        )
-        tangential_velocity = np.einsum(
-            'ij,ij->i', cartesian_vector, tangential_unit_vector
-        )
-        axial_velocity = np.einsum(
-            'ij,ij->i', cartesian_vector, y_axis_unit_vector_2d
-        )
-
-        radial_vector = np.array([
-            radial_velocity, tangential_velocity, axial_velocity
-        ]).T
-
-        return radial_vector
-    
-    def particle_radial_velocity(self):
-        """
-        calculates the particle velocity in radial coordinates
+    def particle_radial_velocity(self) -> np.ndarray:
+        """Calculates the particle velocity in radial coordinates.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the particle radial velocity.
         """
         velocity = self.trajectory.return_velocity()
 
-        return self.vector_radial_coordinates(velocity)
+        return vector_radial_coordinates(velocity)
     
-    def unpeterbed_fluid_radial_velocity(self, fluid_location: str):
-        """
-        calculates the fluid velocity in radial coordinates
+    def unpeterbed_fluid_radial_velocity(self, fluid_location: str) -> np.ndarray:
+        """Calculates the fluid velocity in radial coordinates.
+        
+        Args
+        ----
+        fluid_location : str
+            Path to the fluid data file.
+        
+        Returns
+        -------
+        np.ndarray
+            Array containing the fluid radial velocity.
         """
         vtk = pv.read(fluid_location)
         fluid_velocity = self.unpeterbed_fluid_velocity_over_trajectory(vtk)
 
         return self.vector_radial_coordinates(fluid_velocity)    
     
-    # def unpeterbed_fluid_velocity_over_trajectory(self, fluid_location: str):
-    #     """
-    #     calculates the difference between the fluid velocity and the 
-    #     particle velocity at each point on the trajectory. 
-    #     """
-
-    #     # If the velocity has been calculated already, use that.
-    #     if self.junction_only:
-    #         interpolated_velocity_filepath = os.path.join(
-    #             self.trajectory.filepath, 'unpeterbed_interpolated_velocity_junction.npy'
-    #         )
-    #     else:
-    #         interpolated_velocity_filepath = os.path.join(
-    #             self.trajectory.filepath, 'unpeterbed_interpolated_velocity_all.npy'
-    #         )
-
-    #     if os.path.exists(interpolated_velocity_filepath):
-    #         velocity = np.load(interpolated_velocity_filepath)
-    #         return velocity
+    def unpeterbed_fluid_velocity_over_trajectory(self, fluid_data: pv.PolyData) -> np.ndarray:
+        """Calculates the difference between the fluid velocity and the particle velocity at each point on the trajectory.
         
-    #     # If the velocity has not been calculated, calculate it now.
-
-    #     # start with the particle trajectory:
-    #     trajectory = self.trajectory.return_coordinates(normalise=False)
-    #     times = self.trajectory.return_times(normalise=False)
-
-    #     # load the fluid data
-    #     fluid_data = self.read_fluid_vtk(fluid_location)
-
-    #     # Loop over the trajectory timesteps. For each timestep, load
-    #     # the fluid data and interpolate the fluid velocity at the
-    #     # particle position. Then calculate the difference between the
-    #     # fluid velocity and the particle velocity.
-    #     results = np.array([])
-    #     for i, time in enumerate(times):
-            
-    #         print('processing timestep', time, 'of', times[-1])
-
-    #         # get the particle position and convert to pv datatype
-    #         particle_position = trajectory[i,:]
-    #         particle_position = pv.PolyData(particle_position)
-    #         fluid_velocity = particle_position.interpolate(fluid_data)
-    #         fluid_velocity_array = np.array(fluid_velocity.point_data['velocityVector'])
-    #         results = np.append(results,fluid_velocity_array)
+        Args
+        ----
+        fluid_data : pv.PolyData
+            The PolyData object representing the fluid mesh.
         
-    #     results = np.reshape(results, (len(times),3))
-    #     # Save the numpy array
-    #     np.save(interpolated_velocity_filepath, results)
-
-    #     return results
-
-    def unpeterbed_fluid_velocity_over_trajectory(self, fluid_data: pv.PolyData):
+        Returns
+        -------
+        np.ndarray
+            Array containing the fluid velocity differences.
         """
-        Calculates the difference between the fluid velocity and the 
-        particle velocity at each point on the trajectory using vectorized
-        operations for improved performance.
-        """
-
         # Retrieve trajectory data
         trajectory = self.trajectory.return_coordinates(normalise=False)
 
@@ -401,27 +614,34 @@ class ProcessTrajectory:
     
 
     def fit_damped_sine(self) -> np.ndarray:
-        """
-        Returns the parameters of a damped sine wave fit to the trajectory.
-        returns:
-        popt: np.ndarray, parameters of the damped sine wave fit, [A, omega, gamma, phi, c]
+        """Returns the parameters of a damped sine wave fit to the trajectory.
+        
+        Returns
+        -------
+        np.ndarray
+            Parameters of the damped sine wave fit.
         """
         def damped_wave(t, A, omega, gamma, phi, c) -> np.ndarray:
             """
             Returns a damped sine wave function.
-            args:
-            A: float, amplitude
-            omega: float, angular frequency
-            gamma: float, damping coefficient
-            phi: float, phase
-            c: float, offset
+
+            Args
+            ----
+            A: float
+                amplitude
+            omega: float
+                angular frequency
+            gamma: float
+                damping coefficient
+            phi: float
+                phase
+            c: float
+                offset
             """
-            damping = np.exp(gamma * t)
+            damping = np.exp(-gamma * t)
             oscillation = np.cos((omega + phi*t) * t)
             drift = c
             return A * damping * oscillation + drift
-        
-        # Fit a damped sine wave to the trajectory.
 
         # Extract the time and position data
         t = self.trajectory.return_times(normalise=True)
