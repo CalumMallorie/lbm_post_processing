@@ -564,7 +564,7 @@ class ProcessTrajectory:
         """
         velocity = self.trajectory.return_velocity()
 
-        return vector_radial_coordinates(velocity)
+        return vector_radial_coordinates(velocity, self.trajectory)
     
     def unpeterbed_fluid_radial_velocity(self, fluid_location: str) -> np.ndarray:
         """Calculates the fluid velocity in radial coordinates.
