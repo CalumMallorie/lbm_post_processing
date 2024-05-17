@@ -37,7 +37,7 @@ import numpy as np
 from .process_trajectory import Trajectory
 import pandas as pd
 
-def expand_parameters(parameters):
+def expand_parameters(parameters: dict):
     """
     Expands dictionary parameters containing lists into separate
     dictionaries, each with one value from the list.
