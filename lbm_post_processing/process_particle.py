@@ -36,7 +36,7 @@ Example Usage
 """
 
 from .read_input_parameters import CrossSlotParameters
-from .process_trajectory import Trajectory
+from .process_trajectory import Trajectory, ProcessTrajectory
 from .helper_functions import vector_radial_coordinates
 
 import os
@@ -876,3 +876,26 @@ class ProcessParticle:
         # Sort distances by timestep
         distances = {k: v for k, v in sorted(distances.items(), key=lambda item: item[0])}
         return distances
+    
+    def compute_centrifugal_force(self) -> np.array:
+        """Computes the centrifugal force on the particle.
+        
+        Returns
+        -------
+        np.array
+            Array containing the centrifugal force values.
+        """
+        # Get the orbital radius
+        orbital_radius = ProcessTrajectory(self.filepath, junction_only=self.junction_only).orbital_radius()
+
+        # Get the tangential velocity
+        tangential_velocity = ProcessTrajectory(self.filepath, junction_only=self.junction_only).particle_radial_velocity()[:,1]
+
+        # Get the particle volume
+        particle_volume = self.cross_slot.xml_data.radius**3 * 4/3 * np.pi
+        particle_mass = particle_volume # the density = 1
+
+        # Calculate the centrifugal force
+        centrifugal_force = particle_mass * tangential_velocity**2 / orbital_radius
+
+        return centrifugal_force
