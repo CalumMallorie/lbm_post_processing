@@ -1,3 +1,89 @@
+"""
+process_particle.py
+====================
+
+This module provides the `ProcessParticle` class for processing global
+particle data as trajectory timeseries. The metrics correspond to the whole
+particle rather than its surface.
+
+Classes
+-------
+ProcessParticle
+    Class for processing global particle data as trajectory timeseries.
+
+Dependencies
+------------
+- os
+- numpy
+- pandas
+- pyvista
+- scipy.linalg.eigh
+- concurrent.futures.ProcessPoolExecutor
+
+Functions and Methods
+---------------------
+ProcessParticle
+    __init__(self, filepath, junction_only=True)
+        Initializes the class with the path to the simulation directory.
+    read_particle_datafile(self, filepath)
+        Reads the particle data file and returns it as a pandas DataFrame.
+    read_particle_axes_file(self, filepath)
+        Reads the particle axes data from a specified file.
+    return_particle_axes(self)
+        Returns the particle axes data as a pandas DataFrame.
+    manual_extract_axes(self)
+        Manually extracts the particle axes data.
+    read_particle_vtks(self)
+        Reads particle VTK files and returns them as a dictionary.
+    read_local_fluid_vtks(self)
+        Reads local fluid VTK files and returns them as a dictionary.
+    process_principal_axes(self, filepath, junction_only)
+        Processes the principal axes data.
+    shape_factor(self)
+        Calculates the shape factor from the particle axes data.
+    taylor_deformation(self)
+        Calculates the Taylor deformation.
+    read_integrated_traction_forces(self)
+        Reads the integrated traction forces from a file.
+    filter_df_by_junction(self, df)
+        Filters the DataFrame to include timesteps within the junction.
+    radial_traction_forces(self, option)
+        Calculates the radial traction forces.
+    stresslet(self)
+        Calculates the stresslet and its eigenvalues and eigenvectors.
+    torque(self, option=None)
+        Calculates the torque on the particle.
+    particle_projected_area(self, direction)
+        Calculates the projected area of the particle.
+    dissipation(self, index)
+        Calculates the fluid dissipation in the particle volume.
+    compute_inertia_tensor(self, vtk)
+        Computes the inertia tensor for the particle.
+    inertia_tensor_timeseries(self)
+        Computes the inertia tensor timeseries for the particle.
+    thickness_span_cytovale(self)
+        Computes the thickness span of the particle.
+    max_distances(self, points, plane)
+        Calculates the maximum distance in the specified plane.
+    process_vtk(self, timestep, vtk, plane)
+        Processes a VTK file to compute distances.
+    max_stretch_plane(self, plane)
+        Calculates the maximum stretch in the specified plane.
+
+Example Usage
+-------------
+    from process_particle import ProcessParticle
+    
+    # Initialize with path to simulation directory
+    particle_processor = ProcessParticle('path/to/simulation')
+    
+    # Read particle data
+    particle_data = particle_processor.read_particle_datafile('path/to/simulation')
+    
+    # Compute shape factor
+    shape_factor = particle_processor.shape_factor()
+"""
+
 from .read_input_parameters import CrossSlotParameters
 from .process_trajectory import Trajectory
 from .helper_functions import vector_radial_coordinates
@@ -11,12 +97,82 @@ from concurrent.futures import ProcessPoolExecutor
 
 class ProcessParticle:
     """
-    Class for processing global particle data as trajectory timeseries. 
+    Class for processing global particle data as trajectory timeseries.
     Global here means that each metric corresponds to the whole particle,
     rather than over the particle surface.
+
+    Attributes
+    ----------
+    filepath : str
+        Path to the simulation directory.
+    junction_only : bool
+        Whether to process only junction data.
+    cross_slot : CrossSlotParameters
+        Instance of CrossSlotParameters for extracting simulation parameters.
+    manual_axes : pd.DataFrame or None
+        Placeholder for the particle axes data if they need manual calculation.
+
+    Methods
+    -------
+    __init__(self, filepath: str, junction_only: bool = True)
+        Initializes the ProcessParticle class with the path to the simulation directory.
+    read_particle_datafile(self, filepath: str) -> pd.DataFrame
+        Reads the particle data file and returns it as a pandas DataFrame.
+    read_particle_axes_file(self, filepath: str) -> pd.DataFrame
+        Reads the particle axes data from a specified file.
+    return_particle_axes(self) -> pd.DataFrame
+        Returns the particle axes data as a pandas DataFrame.
+    manual_extract_axes(self) -> pd.DataFrame
+        Manually extracts the particle axes data.
+    read_particle_vtks(self) -> dict
+        Reads particle VTK files and returns them as a dictionary.
+    read_local_fluid_vtks(self) -> dict
+        Reads local fluid VTK files and returns them as a dictionary.
+    process_principal_axes(self, filepath: str, junction_only: bool) -> pd.DataFrame
+        Processes the principal axes data.
+    shape_factor(self) -> float
+        Calculates the shape factor from the particle axes data.
+    taylor_deformation(self) -> pd.Series
+        Calculates the Taylor deformation.
+    read_integrated_traction_forces(self) -> pd.DataFrame
+        Reads the integrated traction forces from a file.
+    filter_df_by_junction(self, df: pd.DataFrame) -> pd.DataFrame
+        Filters the DataFrame to include timesteps within the junction.
+    radial_traction_forces(self, option: str) -> np.ndarray
+        Calculates the radial traction forces.
+    stresslet(self) -> tuple
+        Calculates the stresslet and its eigenvalues and eigenvectors.
+    torque(self, option: str = None) -> np.ndarray
+        Calculates the torque on the particle.
+    particle_projected_area(self, direction: str) -> pd.DataFrame
+        Calculates the projected area of the particle.
+    dissipation(self, index: float) -> dict
+        Calculates the fluid dissipation in the particle volume.
+    compute_inertia_tensor(self, vtk: pv.PolyData) -> np.ndarray
+        Computes the inertia tensor for the particle.
+    inertia_tensor_timeseries(self) -> dict
+        Computes the inertia tensor timeseries for the particle.
+    thickness_span_cytovale(self) -> pd.DataFrame
+        Computes the thickness span of the particle.
+    max_distances(self, points: np.ndarray, plane: str) -> float
+        Calculates the maximum distance in the specified plane.
+    process_vtk(self, timestep: int, vtk: pv.PolyData, plane: str) -> tuple
+        Processes a VTK file to compute distances.
+    max_stretch_plane(self, plane: str) -> dict
+        Calculates the maximum stretch in the specified plane.
     """
 
     def __init__(self, filepath: str, junction_only: bool = True) -> None:
+        """Initialize the ProcessParticle class with the path to the
+        simulation directory.
+
+        Args
+        ----
+        filepath : str
+            The path to the simulation directory.
+        junction_only : bool, optional
+            Whether to process only junction data (default is True).
+        """
         self.filepath = filepath
         self.junction_only = junction_only
 
@@ -27,17 +183,30 @@ class ProcessParticle:
         self.manual_axes = None
 
     def read_particle_datafile(self, filepath: str) -> pd.DataFrame:
-            path = os.path.join(
-                filepath, 'Particles', 'Particle_0.dat'
-                )
-            df = pd.read_csv(
-                path, sep=' ', skiprows=22, index_col=False
-                )
-            return df
+        """Read the particle data file and return it as a pandas DataFrame.
+
+        Args
+        ----
+        filepath : str
+            The path to the directory containing the 'Particles' folder.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the particle data.
+        """
+        path = os.path.join(
+            filepath, 'Particles', 'Particle_0.dat'
+            )
+        df = pd.read_csv(
+            path, sep=' ', skiprows=22, index_col=False
+            )
+        return df
     
     def read_particle_axes_file(self, filepath: str):
         """
-        Read the particle axes data from a specified file.
+        Read the particle axes data from a specified file, or manually extract
+        the data if the file is not found.
 
         Args:
             filepath: The path to the directory containing the 'Particles'
@@ -55,8 +224,12 @@ class ProcessParticle:
             return self.manual_extract_axes()
         
     def return_particle_axes(self):
-        """
-        Return the particle axes data as a pandas DataFrame.
+        """Return the particle axes data as a pandas DataFrame.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the particle axes data.
         """
         if self.junction_only:
             return self.filter_df_by_junction(self.read_particle_axes_file(self.filepath))
@@ -64,7 +237,14 @@ class ProcessParticle:
             return self.read_particle_axes_file(self.filepath)
             
     def manual_extract_axes(self):
-        def compute_areas_normals_vectorized(mesh):
+        """Manually extract the particle axes data.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the manually extracted particle axes data.
+        """
+        def compute_areas_normals_vectorized(mesh: pv.PolyData):
             # Extract vertices for all faces, assuming triangular faces
             # Faces are stored in a flat array with a fixed pattern: [n_vertices, idx1, idx2, idx3, ...]
             faces = mesh.faces.reshape(-1, 4)[:, 1:]  # Reshape and skip 'n_vertices'
@@ -83,7 +263,7 @@ class ProcessParticle:
 
             return areas, normals
 
-        def compute_inertia_tensor_volume(mesh):
+        def compute_inertia_tensor_volume(mesh: pv.PolyData):
             centre = mesh.center
             areas, normals = compute_areas_normals_vectorized(mesh)
             
@@ -147,6 +327,13 @@ class ProcessParticle:
 
     
     def read_particle_vtks(self) -> dict:
+        """Reads particle VTK files and returns them as a dictionary.
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are VTK objects.
+        """
         simulation_filepath = self.filepath
         # Read the particle vtks
         vtk_directory = os.path.join(simulation_filepath, 'VTKParticles')
@@ -161,6 +348,13 @@ class ProcessParticle:
         return particle_vtks
     
     def read_local_fluid_vtks(self):
+        """Reads local fluid VTK files and returns them as a dictionary.
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are VTK objects.
+        """
         simulation_filepath = self.filepath
         # timesteps to read:
         times_to_read = Trajectory(
@@ -182,6 +376,20 @@ class ProcessParticle:
         return fluid_vtks
     
     def process_principal_axes(self, filepath: str, junction_only: bool):
+        """Processes the principal axes data.
+
+        Args
+        ----
+        filepath : str
+            The path to the directory containing the 'Particles' folder.
+        junction_only : bool
+            Whether to process only junction data.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the processed principal axes data.
+        """
         # Read the particle axes data
         axes_data = self.read_particle_axes_file(filepath)
         axes_data['timestep'] = axes_data['time'].astype(int)
@@ -197,13 +405,15 @@ class ProcessParticle:
         return filtered
     
     def shape_factor(self):
-        """
-        Calculate the shape factor from the particle axes data, which 
-        distinguishes particles as prolate, oblate, or spherical based 
-        on their geometry.
-        
-        Returns:
-            The shape factor of the particle, or None if the calculation 
+        """Calculates the shape factor from the particle axes data.
+
+        The shape factor distinguishes particles as prolate, oblate,
+        or spherical based on their geometry.
+
+        Returns
+        -------
+        float
+            The shape factor of the particle, or None if the calculation
             fails due to missing or invalid data.
         """
         try:
@@ -226,6 +436,13 @@ class ProcessParticle:
             return None
 
     def taylor_deformation(self):
+        """Calculates the Taylor deformation.
+
+        Returns
+        -------
+        pd.Series
+            Series containing the Taylor deformation values.
+        """
         # Taylor deformation TD = (a-c)/(a+c)
 
         if self.junction_only:
@@ -237,21 +454,14 @@ class ProcessParticle:
         taylor_deformation = (axes_data['a']-axes_data['c'])/(axes_data['a']+axes_data['c'])
         return taylor_deformation
     
-    # def process_traction_data(self, filepath: str, junction_only: bool):
-    #     # Read and convert the integrated traction force data, and 
-    #     # filter it to only include timesteps within the junction if 
-    #     # junction_only is True
-
-    #     traction_data = self.read_integrated_traction_forces(filepath)
-    #     converted_df = self.convert_integrated_traction_forces(
-    #         traction_data
-    #         )
-    #     if junction_only:
-    #         return self.filter_df_by_junction(converted_df)
-    #     else:
-    #         return converted_df
-    
     def read_integrated_traction_forces(self) -> pd.DataFrame:
+        """Reads the integrated traction forces from a file.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the integrated traction forces data.
+        """
         # load the integrated traction forces
         path = os.path.join(self.filepath, 'converted', 'force_analysis.csv')
         df = pd.read_csv(path)
@@ -263,11 +473,21 @@ class ProcessParticle:
             return df
 
     def filter_df_by_junction(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Filters the dataframe to only include timesteps within the junction.
-        This works by looking at the particle trajectory and finding the x, y, z
-        coordinates of the junction. Then the dataframe is filtered to only
+        """Filters the DataFrame to include timesteps within the junction.
+
+        This works by looking at the particle trajectory and finding the x, y,
+        z coordinates of the junction. Then the DataFrame is filtered to only
         include timesteps where the particle is within the junction.
+
+        Args
+        ----
+        df : pd.DataFrame
+            DataFrame to be filtered.
+
+        Returns
+        -------
+        pd.DataFrame
+            Filtered DataFrame.
         """
 
         particle_dataframe = self.read_particle_datafile(self.filepath)
@@ -292,7 +512,18 @@ class ProcessParticle:
         return filtered_df
     
     def radial_traction_forces(self, option: str):
+        """Calculates the radial traction forces.
 
+        Args
+        ----
+        option : str
+            The type of force to calculate ('traction', 'press', 'dev').
+
+        Returns
+        -------
+        np.ndarray
+            Array containing the radial traction forces.
+        """
         integrated_traction_df = self.read_integrated_traction_forces()
 
         traction = integrated_traction_df[['traction_forces_x', 'traction_forces_y', 'traction_forces_z']].to_numpy()
@@ -316,7 +547,13 @@ class ProcessParticle:
             return dev_force_radial
         
     def stresslet(self):
+        """Calculates the stresslet and its eigenvalues and eigenvectors.
 
+        Returns
+        -------
+        tuple
+            A tuple containing two lists: eigenvalues and eigenvectors.
+        """
         integrated_traction_df = self.read_integrated_traction_forces()
 
         # the df contains columns:
@@ -351,11 +588,18 @@ class ProcessParticle:
 
         
     def torque(self, option: str = None):
-        """
-        Calculate the torque on the particle. The torque needs a relative
-        position vector, which is calculated from the particle trajectory.
-        The reference point is the perpendicular displacement from the vortex
-        centre to the particle centre. 
+        """Calculates the torque on the particle.
+
+        Args
+        ----
+        option : str, optional
+            The type of force to use for the calculation ('traction', 'press', 'dev').
+            If None, the default traction force is used (default is None).
+
+        Returns
+        -------
+        np.ndarray
+            Array containing the torque values.
         """
 
         # get the traction
@@ -386,16 +630,19 @@ class ProcessParticle:
         torque = np.cross(relative_position, traction)
         return torque
     
-    # def average_radial_traction_forces(self):
-    #     # Convert the traction forces to radial
-    #     df = self.convert_traction_forces_to_radial()
-    #     df.drop('timestep', axis=1, inplace=True)
-
-    #     # Average the radial traction forces
-    #     averages = df.mean()
-    #     return averages
-    
     def particle_projected_area(self, direction):
+        """Calculates the projected area of the particle.
+
+        Args
+        ----
+        direction : str
+            The direction in which to project the particle.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the projected area at each timestep.
+        """
         particle_vtks = self.read_particle_vtks()
         projected_areas = []
 
@@ -420,9 +667,17 @@ class ProcessParticle:
             return projected_areas_df
             
     def dissipation(self, index: float) -> dict:
-        """
-        calculates the fluid dissipation in the particle volume
-        over time
+        """Calculates the fluid dissipation in the particle volume.
+
+        Args
+        ----
+        index : float
+            The index value for the threshold filter.
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are dissipation values.
         """
         def calculate_viscous_stress_tensor(vtk: pv.PolyData):
             tauLoc = vtk.point_data["tauLoc"] # tau is spatially varying
@@ -483,8 +738,17 @@ class ProcessParticle:
         return dissipation_timeseries
     
     def compute_inertia_tensor(self, vtk: pv.PolyData):
-        """
-        Compute the inertia tensor for the particle at a single timestep.
+        """Computes the inertia tensor for the particle.
+
+        Args
+        ----
+        vtk : pv.PolyData
+            The VTK object representing the particle mesh.
+
+        Returns
+        -------
+        np.ndarray
+            The inertia tensor as a 3x3 numpy array.
         """
         # Calculate the inertia tensor
         inertia_tensor = vtk.compute_inertia_tensor()
@@ -492,6 +756,13 @@ class ProcessParticle:
         
 
     def inertia_tensor_timeseries(self):
+        """Computes the inertia tensor timeseries for the particle.
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are inertia tensors.
+        """
         # Calculate the inertia tensor for the particle
         particle_vtks = self.read_particle_vtks()
         inertia_tensors = {}
@@ -506,6 +777,13 @@ class ProcessParticle:
         return inertia_tensors
     
     def thickness_span_cytovale(self) -> pd.DataFrame:
+        """Computes the thickness span of the particle.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the thickness span at each timestep.
+        """
         particle_vtks = self.read_particle_vtks()
 
         areas = []
@@ -547,33 +825,79 @@ class ProcessParticle:
         else:
             return pd.DataFrame(areas)
 
-    def max_distances(self, points, plane):
-        if plane not in ["xy", "yz", "xz"]:
-            raise ValueError(f"Invalid plane '{plane}'. Choose from 'xy', 'yz', or 'xz'.")
-
-        # Extract coordinates based on the plane
-        if plane == "xy":
-            coord1, coord2 = points[:, 0], points[:, 1]
-        elif plane == "yz":
-            coord1, coord2 = points[:, 1], points[:, 2]
-        elif plane == "xz":
-            coord1, coord2 = points[:, 0], points[:, 2]
-
-        # Compute all pairwise squared distances using broadcasting
-        d1 = coord1[:, np.newaxis] - coord1
-        d2 = coord2[:, np.newaxis] - coord2
-        distances_sq = d1**2 + d2**2
-
-        # Find the maximum squared distance and take its square root
-        max_distance = np.sqrt(np.max(distances_sq))
-        return max_distance
-
-    def process_vtk(self, timestep, vtk, plane):
-        points = vtk.points
-        distance = self.max_distances(points, plane=plane)
-        return timestep, distance
-
     def max_stretch_plane(self, plane):
+        """
+        Calculates the maximum stretch in the specified plane.
+
+        Args
+        ----
+        plane : str
+            The plane in which to calculate the maximum stretch ('xy', 'yz', 'xz').
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are maximum stretch distances.
+        """
+        
+        def max_distances(points, plane):
+            """
+            Calculates the maximum distance in the specified plane.
+
+            Args
+            ----
+            points : np.ndarray
+                Array of points representing the particle mesh.
+            plane : str
+                The plane in which to calculate distances ('xy', 'yz', 'xz').
+
+            Returns
+            -------
+            float
+                The maximum distance in the specified plane.
+            """
+            if plane not in ["xy", "yz", "xz"]:
+                raise ValueError(f"Invalid plane '{plane}'. Choose from 'xy', 'yz', or 'xz'.")
+
+            # Extract coordinates based on the plane
+            if plane == "xy":
+                coord1, coord2 = points[:, 0], points[:, 1]
+            elif plane == "yz":
+                coord1, coord2 = points[:, 1], points[:, 2]
+            elif plane == "xz":
+                coord1, coord2 = points[:, 0], points[:, 2]
+
+            # Compute all pairwise squared distances using broadcasting
+            d1 = coord1[:, np.newaxis] - coord1
+            d2 = coord2[:, np.newaxis] - coord2
+            distances_sq = d1**2 + d2**2
+
+            # Find the maximum squared distance and take its square root
+            max_distance = np.sqrt(np.max(distances_sq))
+            return max_distance
+
+        def process_vtk(timestep, vtk, plane):
+            """
+            Processes a VTK file to compute pairwise distance between all points.
+
+            Args
+            ----
+            timestep : int
+                The current timestep.
+            vtk : pv.PolyData
+                The VTK object representing the particle mesh.
+            plane : str
+                The plane in which to calculate distances ('xy', 'yz', 'xz').
+
+            Returns
+            -------
+            tuple
+                A tuple containing the timestep and the calculated distance.
+            """
+            points = vtk.points
+            distance = max_distances(points, plane=plane)
+            return timestep, distance
+        
         vtks = self.read_particle_vtks()
         
         vtks_df = pd.DataFrame(columns=["time", "vtk"])
@@ -589,7 +913,7 @@ class ProcessParticle:
         distances = {}
 
         with ProcessPoolExecutor() as executor:
-            futures = [executor.submit(self.process_vtk, timestep, vtk, plane) 
+            futures = [executor.submit(process_vtk, timestep, vtk, plane) 
                        for timestep, vtk in vtks.items()]
             
             for future in futures:
