@@ -16,8 +16,15 @@ class Trajectory:
     
     def read_particle_datafile(self, filepath: str):
         df = []
-        path = os.path.join(filepath, 'Particles', 'Particle_0.dat')
-        df = pd.read_csv(path, sep=' ', skiprows=22, index_col=False)
+        try:
+            path = os.path.join(filepath, 'Particles', 'Particle_0.dat')
+            df = pd.read_csv(path, sep=' ', skiprows=22, index_col=False)
+        except FileNotFoundError:
+            print(f"File {path} not found.")
+        except PermissionError:
+            print(f"Permission denied for file {path}.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
         return df
     
     def filter_by_junction(self, df: pd.DataFrame):
