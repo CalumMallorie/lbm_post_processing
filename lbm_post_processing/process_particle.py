@@ -776,7 +776,7 @@ class ProcessParticle:
         else:
             return pd.DataFrame(areas)
         
-    def max_distances(self, points, plane):
+    def _max_distances(self, points, plane):
             """
             Calculates the maximum distance in the specified plane.
 
@@ -812,7 +812,7 @@ class ProcessParticle:
             max_distance = np.sqrt(np.max(distances_sq))
             return max_distance
 
-    def process_vtk(self, timestep, vtk, plane):
+    def _process_vtk(self, timestep, vtk, plane):
         """
         Processes a VTK file to compute pairwise distance between all points.
 
@@ -831,7 +831,7 @@ class ProcessParticle:
             A tuple containing the timestep and the calculated distance.
         """
         points = vtk.points
-        distance = self.max_distances(points, plane=plane)
+        distance = self._max_distances(points, plane=plane)
         return timestep, distance
 
     def max_stretch_plane(self, plane):
@@ -864,7 +864,7 @@ class ProcessParticle:
         distances = {}
 
         with ProcessPoolExecutor() as executor:
-            futures = [executor.submit(self.process_vtk, timestep, vtk, plane) 
+            futures = [executor.submit(self._process_vtk, timestep, vtk, plane) 
                        for timestep, vtk in vtks.items()]
             
             for future in futures:
