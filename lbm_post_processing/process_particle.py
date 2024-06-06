@@ -775,23 +775,8 @@ class ProcessParticle:
             return self.filter_df_by_junction(pd.DataFrame(areas))
         else:
             return pd.DataFrame(areas)
-
-    def max_stretch_plane(self, plane):
-        """
-        Calculates the maximum stretch in the specified plane.
-
-        Args
-        ----
-        plane : str
-            The plane in which to calculate the maximum stretch ('xy', 'yz', 'xz').
-
-        Returns
-        -------
-        dict
-            Dictionary where keys are timesteps and values are maximum stretch distances.
-        """
         
-        def max_distances(points, plane):
+    def max_distances(self, points, plane):
             """
             Calculates the maximum distance in the specified plane.
 
@@ -827,27 +812,42 @@ class ProcessParticle:
             max_distance = np.sqrt(np.max(distances_sq))
             return max_distance
 
-        def process_vtk(timestep, vtk, plane):
-            """
-            Processes a VTK file to compute pairwise distance between all points.
+    def process_vtk(self, timestep, vtk, plane):
+        """
+        Processes a VTK file to compute pairwise distance between all points.
 
-            Args
-            ----
-            timestep : int
-                The current timestep.
-            vtk : pv.PolyData
-                The VTK object representing the particle mesh.
-            plane : str
-                The plane in which to calculate distances ('xy', 'yz', 'xz').
+        Args
+        ----
+        timestep : int
+            The current timestep.
+        vtk : pv.PolyData
+            The VTK object representing the particle mesh.
+        plane : str
+            The plane in which to calculate distances ('xy', 'yz', 'xz').
 
-            Returns
-            -------
-            tuple
-                A tuple containing the timestep and the calculated distance.
-            """
-            points = vtk.points
-            distance = max_distances(points, plane=plane)
-            return timestep, distance
+        Returns
+        -------
+        tuple
+            A tuple containing the timestep and the calculated distance.
+        """
+        points = vtk.points
+        distance = self.max_distances(points, plane=plane)
+        return timestep, distance
+
+    def max_stretch_plane(self, plane):
+        """
+        Calculates the maximum stretch in the specified plane.
+
+        Args
+        ----
+        plane : str
+            The plane in which to calculate the maximum stretch ('xy', 'yz', 'xz').
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are timesteps and values are maximum stretch distances.
+        """
         
         vtks = self.read_particle_vtks()
         
@@ -864,7 +864,7 @@ class ProcessParticle:
         distances = {}
 
         with ProcessPoolExecutor() as executor:
-            futures = [executor.submit(process_vtk, timestep, vtk, plane) 
+            futures = [executor.submit(self.process_vtk, timestep, vtk, plane) 
                        for timestep, vtk in vtks.items()]
             
             for future in futures:
