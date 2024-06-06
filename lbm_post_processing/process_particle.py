@@ -19,6 +19,7 @@ Dependencies
 - pyvista
 - scipy.linalg.eigh
 - concurrent.futures.ProcessPoolExecutor
+- concurrent.futures.as_completed
 
 
 Example Usage
@@ -44,7 +45,7 @@ import numpy as np
 import pandas as pd
 import pyvista as pv
 from scipy.linalg import eigh
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 class ProcessParticle:
     """
@@ -727,55 +728,6 @@ class ProcessParticle:
         
         return inertia_tensors
     
-    def thickness_span_cytovale(self) -> pd.DataFrame:
-        """Computes the thickness span of the particle.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the thickness span at each timestep.
-        """
-        particle_vtks = self.read_particle_vtks()
-
-        areas = []
-
-        # Sort the dictionary by timestep
-        particle_vtks = dict(sorted(particle_vtks.items()))
-
-        for timestep, vtk in particle_vtks.items():
-            try:
-                # project the particle mesh onto the plane defined by the direction
-                projected_mesh = vtk.project_points_to_plane(
-                    origin=self.cross_slot.lattice_centre(),
-                    normal=[0,0,1], # z direction
-                )
-
-
-                # the thickness span is the average thickness of the projected
-                # particle mesh in the x direction, over a span of half the 
-                # particle radius from the particle centroid in the positive and
-                # negative y direction.
-
-                span = self.cross_slot.xml_data.radius/2
-                centroid = vtk.center
-                y_min, y_max = centroid[1] - span, centroid[1] + span
-
-                # clip the mesh to the span
-                clipped_mesh = projected_mesh.clip_box([-np.inf, np.inf, y_min, y_max, -np.inf, np.inf], invert=False)
-
-                # calculate the clipped area
-                clipped_area = clipped_mesh.area
-                areas.append({'time': timestep, 'area': clipped_area})
-
-
-            except Exception as e:
-                print(f"Error processing timestep {timestep}: {e}")
-
-        if self.junction_only:
-            return self.filter_df_by_junction(pd.DataFrame(areas))
-        else:
-            return pd.DataFrame(areas)
-        
     def _max_distances(self, points, plane):
             """
             Calculates the maximum distance in the specified plane.
@@ -811,6 +763,79 @@ class ProcessParticle:
             # Find the maximum squared distance and take its square root
             max_distance = np.sqrt(np.max(distances_sq))
             return max_distance
+    
+    def _process_timestep(self, args):
+        """
+        Processes a single timestep to compute the thickness span of the particle.
+
+        Args:
+            args (tuple): Contains self, timestep, and vtk.
+
+        Returns:
+            dict: A dictionary containing the timestep and the calculated area.
+        """
+        self, timestep, vtk = args
+        try:
+            # Project the particle mesh onto the plane defined by the direction
+            projected_mesh = vtk.project_points_to_plane(
+                origin=self.cross_slot.lattice_centre(),
+                normal=[0, 0, 1]  # z direction
+            )
+
+            # The thickness span is the average thickness of the projected
+            # particle mesh in the x direction, over a span of half the
+            # particle radius from the particle centroid in the positive and
+            # negative y direction.
+
+            span = self.cross_slot.xml_data.radius / 2
+            centroid = vtk.center
+            y_min, y_max = centroid[1] - span, centroid[1] + span
+
+            # Clip the mesh to the span
+            clipped_mesh = projected_mesh.clip_box(
+                [-np.inf, np.inf, y_min, y_max, -np.inf, np.inf],
+                invert=False
+            )
+
+            # Calculate the clipped area
+            clipped_area = clipped_mesh.area
+            return {'time': timestep, 'area': clipped_area}
+
+        except Exception as e:
+            print(f"Error processing timestep {timestep}: {e}")
+            return {'time': timestep, 'area': None}
+    
+    def thickness_span_min_cytovale(self) -> pd.DataFrame:
+        """Computes the thickness span of the particle.
+
+        Returns
+        -------
+        float
+            Minimum thickness span across all timesteps.
+        """
+        particle_vtks = self.read_particle_vtks()
+
+        # Sort the dictionary by timestep
+        particle_vtks = dict(sorted(particle_vtks.items()))
+
+        results = []
+        with ProcessPoolExecutor() as executor:
+            future_to_timestep = {
+                executor.submit(self._process_timestep, (self, timestep, vtk)): timestep
+                for timestep, vtk in particle_vtks.items()
+            }
+
+            for future in as_completed(future_to_timestep):
+                result = future.result()
+                if result['area'] is not None:
+                    results.append(result)
+
+        df = pd.DataFrame(results)
+
+        if self.junction_only:
+            return self.filter_df_by_junction(df)['area'].min()
+        else:
+            return df['area'].min()
 
     def _process_vtk(self, timestep, vtk, plane):
         """
