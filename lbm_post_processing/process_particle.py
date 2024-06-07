@@ -901,7 +901,7 @@ class ProcessParticle:
         # Sort distances by timestep
         distances = {k: v for k, v in sorted(distances.items(), key=lambda item: item[0])}
         return distances
-    
+
     def compute_centrifugal_force(self) -> np.array:
         """Computes the centrifugal force on the particle, assuming that the
         particle is in a circular orbit around the outlet centreline.
