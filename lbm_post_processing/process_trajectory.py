@@ -279,7 +279,7 @@ class ProcessTrajectory:
         Returns the amplitudes of the peaks in the xy-plane.
     residence_time(self) -> float
         Returns the residence time of the particle in the junction.
-    PQ345(self, normalise: bool = True) -> float
+    diff345(self, normalise: bool = True) -> float
         Calculates the PQ345 parameter.
     cumulative_angular_displacement(self) -> np.ndarray
         Calculates the cumulative angular displacement.
