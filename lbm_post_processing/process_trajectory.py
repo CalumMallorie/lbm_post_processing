@@ -117,7 +117,7 @@ class Trajectory:
         df = []
         try:
             path = os.path.join(filepath, 'Particles', 'Particle_0.dat')
-            df = pd.read_csv(path, sep=' ', skiprows=22, index_col=False)
+            df = pd.read_csv(path, sep=' ', comment='#', index_col=False)
         except FileNotFoundError:
             print(f"File {path} not found.")
         except PermissionError:
