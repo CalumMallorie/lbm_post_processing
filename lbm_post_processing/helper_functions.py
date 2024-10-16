@@ -73,7 +73,7 @@ def expand_parameters(parameters: dict):
 
     return expanded_parameters
 
-def search_sim_directory(simulations_location: str, parameters: dict = {}):
+def search_sim_directory(simulations_location: str, parameters: dict = {}, exclude: list = []):
     """
     Searches for directories matching the given parameters.
 
@@ -83,6 +83,8 @@ def search_sim_directory(simulations_location: str, parameters: dict = {}):
         Path to the location containing simulation directories.
     parameters : dict, optional
         Dictionary of parameters to match (default is {}).
+    exclude : list, optional
+        List of directory or file names to ignore (default is []).
 
     Returns
     -------
@@ -94,6 +96,8 @@ def search_sim_directory(simulations_location: str, parameters: dict = {}):
 
     for expanded_params in expanded_parameters_list:
         for directory in os.listdir(simulations_location):
+            if directory in exclude:
+                continue
             dir_path = os.path.join(simulations_location, directory)
             if os.path.isdir(dir_path):
                 try:
