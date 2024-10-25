@@ -151,7 +151,7 @@ class ReadSimXML:
         xml_files_found = False
         for root_dir, _, files in os.walk(self.directory_path):
             for file in files:
-                if file.endswith(".xml"):
+                if file.endswith(".xml") and not file.startswith('.'):
                     xml_files_found = True
                     file_path = os.path.join(root_dir, file)
                     try:
