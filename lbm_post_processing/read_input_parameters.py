@@ -57,7 +57,7 @@ class CrossSlotParameters:
         try:
             self.xml_data = CrossSlotXML(filepath)
         except Exception as e:
-            raise ValueError(f"Failed to read or parse the XML file: {e}")
+            raise ValueError(f"Failed to read or parse the XML file at {filepath}: {e}")
 
     def dump(self):
         """Returns a dictionary of method outputs.
