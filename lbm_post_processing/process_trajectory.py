@@ -582,7 +582,7 @@ class ProcessTrajectory:
         vtk = pv.read(fluid_location)
         fluid_velocity = self.unpeterbed_fluid_velocity_over_trajectory(vtk)
 
-        return self.vector_radial_coordinates(fluid_velocity)    
+        return vector_radial_coordinates(fluid_velocity, self.trajectory)    
     
     def unpeterbed_fluid_velocity_over_trajectory(self, fluid_data: pv.PolyData) -> np.ndarray:
         """Calculates the difference between the fluid velocity and the particle velocity at each point on the trajectory.
