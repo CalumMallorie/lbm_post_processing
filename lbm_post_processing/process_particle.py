@@ -44,6 +44,7 @@ import os
 import numpy as np
 import pandas as pd
 import pyvista as pv
+import re
 from scipy.linalg import eigh
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -290,8 +291,12 @@ class ProcessParticle:
         # Read the particle vtks
         vtk_directory = os.path.join(simulation_filepath, 'VTKParticles')
         particle_vtks = {}
+        
+        # Define regex pattern to match only Particles_t[n].vtp files
+        pattern = re.compile(r'^Particles_t\d+\.vtp$')
+        
         for file in os.listdir(vtk_directory):
-            if file.endswith(".vtp") and 'Axes' not in file:
+            if pattern.match(file):
                 timestep = int(file.split('_')[1].split('.')[0].split('t')[1])
                 vtk_location = os.path.join(vtk_directory, file)
                 particle_vtk = pv.read(vtk_location)
@@ -884,7 +889,10 @@ class ProcessParticle:
         else:
             vtks_junction = vtks_df
 
-        vtks = vtks_junction["vtk"].to_dict()
+        # Create a proper dictionary with timesteps as keys
+        vtks = {}
+        for _, row in vtks_junction.iterrows():
+            vtks[row['time']] = row['vtk']
 
         distances = {}
 
