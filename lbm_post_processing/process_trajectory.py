@@ -504,6 +504,17 @@ class ProcessTrajectory:
 
         return angular_velocity
     
+    def average_angular_velocity(self) -> float:
+        """Calculates the average angular velocity.
+        
+        Returns
+        -------
+        float
+            Average angular velocity.
+        """
+        angular_velocity = self.angular_velocity()
+        return np.mean(angular_velocity)
+    
     def orbital_radius(self) -> np.ndarray:
         """Calculates the orbital radius.
         

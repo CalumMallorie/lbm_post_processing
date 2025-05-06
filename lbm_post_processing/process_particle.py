@@ -391,6 +391,17 @@ class ProcessParticle:
             # Log the error or handle it as needed
             print(f"Failed to calculate the shape factor: {e}")
             return None
+        
+    def average_shape_factor(self):
+        """Computes the average shape factor.
+
+        Returns
+        -------
+        float
+            The average shape factor.
+        """
+        shape_factor = self.shape_factor()
+        return np.mean(shape_factor)
 
     def taylor_deformation(self):
         """Calculates the Taylor deformation.
@@ -410,6 +421,17 @@ class ProcessParticle:
 
         taylor_deformation = (axes_data['a']-axes_data['c'])/(axes_data['a']+axes_data['c'])
         return taylor_deformation
+    
+    def average_taylor_deformation(self):
+        """Computes the average Taylor deformation.
+
+        Returns
+        -------
+        float
+            The average Taylor deformation.
+        """
+        taylor_deformation = self.taylor_deformation()
+        return np.mean(taylor_deformation)
     
     def read_integrated_traction_forces(self) -> pd.DataFrame:
         """Reads the integrated traction forces from a file.
@@ -909,6 +931,17 @@ class ProcessParticle:
         # Sort distances by timestep
         distances = {k: v for k, v in sorted(distances.items(), key=lambda item: item[0])}
         return distances
+    
+    def average_stretch_xz(self) -> float:
+        """Computes the average stretch in the xz plane.
+
+        Returns
+        -------
+        float
+            The average stretch in the xz plane.
+        """
+        stretch_xz = self.max_stretch_plane(plane='xz')
+        return np.mean(list(stretch_xz.values()))
 
     def compute_centrifugal_force(self) -> np.array:
         """Computes the centrifugal force on the particle, assuming that the
